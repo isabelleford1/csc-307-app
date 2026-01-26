@@ -70,7 +70,7 @@ const findUsers = (name, job) => {
   });
 };
 
-
+const generateId = () => Math.random().toString(36).slice(2, 8);
 
 app.use(express.json());
 
@@ -91,11 +91,26 @@ app.get("/users", (req, res) => {
 });
 
 
+// app.post("/users", (req, res) => {
+//   const userToAdd = req.body;
+//   addUser(userToAdd);
+//   res.send();
+// });
+// 201 content created, generate id on server, return newly created objected from POST
 app.post("/users", (req, res) => {
-  const userToAdd = req.body;
-  addUser(userToAdd);
-  res.send();
+  const userFromClient = req.body;
+
+  const newUser = {
+    id: generateId(),
+    name: userFromClient.name,
+    job: userFromClient.job,
+  };
+
+  addUser(newUser);
+
+  res.status(201).send(newUser);
 });
+
 
 
 app.get("/users/:id", (req, res) => {

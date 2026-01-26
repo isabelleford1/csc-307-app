@@ -8,12 +8,26 @@ import Form from "./Form";
 function MyApp() {
   const [characters, setCharacters] = useState([]);
 
+  // function removeOneCharacter(index) {
+  //   const updated = characters.filter((character, i) => {
+  //     return i !== index;
+  //   });
+  //   setCharacters(updated);
+  // }
   function removeOneCharacter(index) {
-    const updated = characters.filter((character, i) => {
-      return i !== index;
-    });
-    setCharacters(updated);
+    const userToDelete = characters[index];
+    const id = userToDelete.id;
+
+    deleteUser(id)
+      .then((res) => {
+        if (res.status !== 204) throw new Error("DELETE failed (expected 204)");
+        setCharacters((prev) => prev.filter((c) => c.id !== id));
+      })
+      .catch((error) => {
+        console.log(error);
+      });
   }
+
   
   // function updateList(person) {
   //   setCharacters([...characters, person]);
@@ -25,24 +39,46 @@ function MyApp() {
   }
 
   function postUser(person) {
-    const promise = fetch("Http://localhost:8000/users", {
+    const promise = fetch("http://localhost:8000/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(person),
     });
-
-    return promise;
+    // return promise;
   }
 
+  // function updateList(person) {
+  //   postUser(person)
+  //     .then(() => setCharacters([...characters, person]))
+  //     .catch((error) => {
+  //       console.log(error);
+  //     });
+  // }
+// only updates table if backend returns 201,
+// and it uses the server-returned object with id
   function updateList(person) {
     postUser(person)
-      .then(() => setCharacters([...characters, person]))
+      .then((res) => {
+        if (res.status !== 201) throw new Error("POST failed (expected 201)");
+        return res.json();
+      })
+      .then((newUserFromServer) => {
+        setCharacters((prev) => [...prev, newUserFromServer]);
+      })
       .catch((error) => {
         console.log(error);
       });
   }
+
+  function deleteUser(id) {
+    return fetch(`http://localhost:8000/users/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+
 
   useEffect(() => {
     fetchUsers()

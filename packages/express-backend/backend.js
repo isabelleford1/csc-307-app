@@ -1,71 +1,20 @@
 // backend.js
 import express from "express";
+import userService from "./services/user-service.js";
+import dotenv from "dotenv";
+import mongoose from "mongoose";
 
-const users = {
-  users_list: [
-    {
-      id: "xyz789",
-      name: "Charlie",
-      job: "Janitor"
-    },
-    {
-      id: "abc123",
-      name: "Mac",
-      job: "Bouncer"
-    },
-    {
-      id: "ppp222",
-      name: "Mac",
-      job: "Professor"
-    },
-    {
-      id: "yat999",
-      name: "Dee",
-      job: "Aspring actress"
-    },
-    {
-      id: "zap555",
-      name: "Dennis",
-      job: "Bartender"
-    }
-  ]
-};
+dotenv.config();
 
+const { MONGO_CONNECTION_STRING } = process.env;
+
+mongoose.set("debug", true);
+mongoose
+  .connect(MONGO_CONNECTION_STRING + "users") // connect to Db "users"
+  .catch((error) => console.log(error));
 
 const app = express();
 const port = 8000;
-
-// helper functions
-const findUserById = (id) =>
-  users["users_list"].find((user) => user["id"] === id);
-
-const findUserByName = (name) => {
-  return users["users_list"].filter(
-    (user) => user["name"] === name
-  );
-};
-
-const addUser = (user) => {
-  users["users_list"].push(user);
-  return user;
-};
-
-const deleteUserById = (id) => {
-  const index = users["users_list"].findIndex((user) => user.id === id);
-  if (index === -1) return false;
-  users["users_list"].splice(index, 1);
-  return true;
-};
-
-const findUsers = (name, job) => {
-  return users["users_list"].filter((user) => {
-    const matchesName = name ? user.name === name : true;
-    const matchesJob = job ? user.job === job : true;
-    return matchesName && matchesJob;
-  });
-};
-
-
 
 app.use(express.json());
 
@@ -73,55 +22,77 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-
+// GET /users?name=...&job=...
+// Returns { users_list: [...] }
 app.get("/users", (req, res) => {
   const { name, job } = req.query;
 
-  if (name !== undefined || job !== undefined) {
-    const result = findUsers(name, job);
-    res.send({ users_list: result });
-  } else {
-    res.send(users);
-  }
+  userService
+    .getUsers(name, job)
+    .then((users) => {
+      res.status(200).send({ users_list: users });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).send({ error: "Server error" });
+    });
 });
 
-
+// POST /users
+// Body: { name: "...", job: "..." }
+// Returns 201 + created user
 app.post("/users", (req, res) => {
   const userToAdd = req.body;
-  addUser(userToAdd);
-  res.send();
+
+  userService
+    .addUser(userToAdd)
+    .then((createdUser) => {
+      res.status(201).send(createdUser);
+    })
+    .catch((err) => {
+      console.error(err);
+      // schema validation errors should be treated as 400
+      res.status(400).send({ error: err.message });
+    });
 });
 
-
+// GET /users/:id
 app.get("/users/:id", (req, res) => {
   const id = req.params.id;
 
-  let result = findUserById(id);
-
-  if (result === undefined) {
-    res.status(404).send("Resource not found.");
-  } else {
-    res.send(result);
-  }
+  userService
+    .findUserById(id)
+    .then((user) => {
+      if (!user) {
+        res.status(404).send("Resource not found.");
+      } else {
+        res.status(200).send(user);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      // invalid ObjectId or other errors
+      res.status(400).send("Resource not found.");
+    });
 });
 
+// DELETE /users/:id
 app.delete("/users/:id", (req, res) => {
   const id = req.params.id;
 
-  const deleted = deleteUserById(id);
-
-  if (!deleted) {
-    res.status(404).send("Resource not found.");
-  } else {
-    res.status(204).send(); // 204 = success, no content
-  }
+  userService
+    .deleteUserById(id)
+    .then((deletedUser) => {
+      if (!deletedUser) {
+        res.status(404).send("Resource not found.");
+      } else {
+        res.status(204).send();
+      }
+    })
+    .catch((error) => res.status(500).send(error));
 });
 
 
-
-
 app.listen(port, () => {
-  console.log(
-    `Example app listening at http://localhost:${port}`
-  );
+  console.log(`Example app listening at http://localhost:${port}`);
 });
